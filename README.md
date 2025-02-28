@@ -19,8 +19,8 @@ A web application for practicing and testing spelling skills with text-to-speech
 The app supports URL parameters for sharing word lists:
 
 - Add words to the URL using the `words` parameter: `?words=apple,banana,orange`
-- When a URL parameter is present, the app uses those words instead of local storage
-- The URL updates automatically when the word list changes (when using URL parameters)
+- The URL updates automatically when the word list changes
+- Word lists are always saved to both URL and localStorage
 
 ## How to Use
 
@@ -44,16 +44,40 @@ The app supports URL parameters for sharing word lists:
 To run the project locally:
 
 1. Clone the repository
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Start the development server: `npm start`
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-## Build
-
-To build for production:
-
+```bash
+git clone https://github.com/ShinyChang/spelling-practice-app.git
+cd spelling-practice-app
 ```
+
+2. Install dependencies
+```bash
+npm install
+```
+
+3. Start the development server
+```bash
+npm start
+```
+
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Deployment to GitHub Pages
+
+This app is configured for GitHub Pages deployment:
+
+1. Make your changes and commit them
+2. Deploy to GitHub Pages
+```bash
+npm run deploy
+```
+
+3. Visit your app at [https://shinychang.github.io/spelling-practice-app](https://shinychang.github.io/spelling-practice-app)
+
+## Building for Production
+
+To build the app for production without deploying:
+
+```bash
 npm run build
 ```
 
