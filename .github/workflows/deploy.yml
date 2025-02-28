@@ -1,35 +1,61 @@
 name: Deploy to GitHub Pages
 
 on:
+  # Runs on pushes targeting the default branch
   push:
-    branches:
-      - main
+    branches: ["main"]
 
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
+  # Build job
   build-and-deploy:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
         
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: '18'
           cache: 'npm'
           
-      - name: Install Dependencies
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        
+      - name: Install dependencies
         run: npm ci
         
       - name: Build
         run: npm run build
-        
+        env:
+          PUBLIC_URL: /spelling-practice-app
+          
+      # Ensure .nojekyll exists to prevent GitHub Pages from using Jekyll
+      - name: Create .nojekyll file
+        run: touch build/.nojekyll
+      
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: build # The folder the action should deploy
-          branch: gh-pages # The branch the action should deploy to
+          folder: build
+          branch: gh-pages
+          clean: true # Automatically remove deleted files from the deploy branch
+          clean-exclude: |
+            .nojekyll
+          commit-message: "Deploy: ${GITHUB_SHA}"
+          git-config-name: GitHub Actions
+          git-config-email: github-actions@github.com

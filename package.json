@@ -2,7 +2,7 @@
   "name": "spelling-app",
   "version": "1.0.0",
   "private": true,
-  "homepage": "https://shinychang.github.io/spelling-practice-app",
+  "homepage": "https://shinychang.github.io/spelling-practice-app/",
   "dependencies": {
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
