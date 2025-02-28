@@ -146,7 +146,7 @@ const SpellingApp = () => {
   }, [isExamMode, currentWordIndex]);
   
   // Get the appropriate voice based on selected accent
-  const getVoice = () => {
+  const getVoice = React.useCallback(() => {
     const langCode = speechAccent === 'us' ? 'en-US' : 'en-GB';
     
     // First try to find a voice that matches the exact language code
@@ -163,10 +163,10 @@ const SpellingApp = () => {
     }
     
     return voice;
-  };
+  }, [speechAccent, availableVoices]);
   
   // Speak the current word using TTS
-  const speakWord = () => {
+  const speakWord = React.useCallback(() => {
     if (!isExamMode || isExamComplete) return;
     
     const currentWord = examWords[currentWordIndex];
@@ -190,14 +190,14 @@ const SpellingApp = () => {
     
     // Speak the word
     window.speechSynthesis.speak(utterance);
-  };
+  }, [isExamMode, isExamComplete, examWords, currentWordIndex, speechSpeed, getVoice]);
   
   // Automatically speak the word when moving to a new word in exam mode
   useEffect(() => {
     if (isExamMode && !isExamComplete) {
       speakWord();
     }
-  }, [isExamMode, currentWordIndex, isExamComplete]);
+  }, [isExamMode, currentWordIndex, isExamComplete, speakWord]);
   
   // Shuffle an array using Fisher-Yates algorithm
   const shuffleArray = (array) => {
