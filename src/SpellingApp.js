@@ -14,7 +14,6 @@ const SpellingApp = () => {
   const [speechSpeed, setSpeechSpeed] = useState('normal'); // 'normal' or 'slow'
   const [speechAccent, setSpeechAccent] = useState('us'); // 'us' or 'uk'
   const [availableVoices, setAvailableVoices] = useState([]);
-  // Removed usingUrlParams state as we now always update the URL
   
   const inputRef = useRef(null);
   const examInputRef = useRef(null);
@@ -36,7 +35,6 @@ const SpellingApp = () => {
         
         if (validWords.length > 0) {
           setWords(validWords);
-          // We now always update the URL, so no need to track this state
           return; // Skip loading from localStorage
         }
       } catch (error) {
@@ -58,19 +56,22 @@ const SpellingApp = () => {
     }
   }, []);
   
-  // Always update URL parameters when word list changes
+  // Update URL parameters when word list changes
   useEffect(() => {
-    // Only update URL after initial render (when words.length > 0)
-    if (words.length > 0) {
-      const wordListParam = encodeURIComponent(words.join(','));
-      const url = new URL(window.location);
-      url.searchParams.set('words', wordListParam);
-      window.history.replaceState({}, '', url);
-    } else if (words.length === 0) {
-      // If word list is empty, remove the parameter from URL
-      const url = new URL(window.location);
-      url.searchParams.delete('words');
-      window.history.replaceState({}, '', url);
+    try {
+      // Only update URL after initial render (when words.length > 0)
+      if (words.length > 0) {
+        const wordListParam = encodeURIComponent(words.join(','));
+        const url = new URL(window.location.href);
+        url.searchParams.set('words', wordListParam);
+        // Using only search part to maintain path compatibility with GitHub Pages
+        window.history.replaceState({}, '', url.search);
+      } else if (words.length === 0) {
+        // If word list is empty, remove the parameter from URL
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch (error) {
+      console.error('Error updating URL:', error);
     }
   }, [words]);
   
