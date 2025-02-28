@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/spelling-practice-app/static/css/main.d3621d0b.css",
-    "main.js": "/spelling-practice-app/static/js/main.ecc5ff9b.js",
+    "main.js": "/spelling-practice-app/static/js/main.c64f6abc.js",
     "index.html": "/spelling-practice-app/index.html",
     "main.d3621d0b.css.map": "/spelling-practice-app/static/css/main.d3621d0b.css.map",
-    "main.ecc5ff9b.js.map": "/spelling-practice-app/static/js/main.ecc5ff9b.js.map"
+    "main.c64f6abc.js.map": "/spelling-practice-app/static/js/main.c64f6abc.js.map"
   },
   "entrypoints": [
     "static/css/main.d3621d0b.css",
-    "static/js/main.ecc5ff9b.js"
+    "static/js/main.c64f6abc.js"
   ]
 }
