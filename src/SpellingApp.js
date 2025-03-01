@@ -28,9 +28,7 @@ const SpellingApp = () => {
       try {
         // Decode and parse the word list
         const decodedWords = decodeURIComponent(wordListParam);
-        const parsedWords = decodedWords
-          .split(",")
-          .map((word) => word.trim().toLowerCase());
+        const parsedWords = decodedWords.split(",").map((word) => word.trim());
 
         // Filter out empty words
         const validWords = parsedWords.filter((word) => word.length > 0);
@@ -259,7 +257,7 @@ const SpellingApp = () => {
 
   const addWord = () => {
     if (newWord.trim()) {
-      const normalizedWord = newWord.trim().toLowerCase();
+      const normalizedWord = newWord.trim();
       if (!words.includes(normalizedWord)) {
         setWords([...words, normalizedWord]);
         setNewWord("");
@@ -308,7 +306,7 @@ const SpellingApp = () => {
 
   const checkAnswer = () => {
     const currentWord = examWords[currentWordIndex];
-    const isCorrect = userAnswer.trim().toLowerCase() === currentWord;
+    const isCorrect = userAnswer.trim() === currentWord;
 
     if (isCorrect) {
       setFeedback("Correct!");
@@ -391,7 +389,7 @@ const SpellingApp = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
         <h1 className="text-2xl font-bold text-center text-blue-600 mb-6">
           Spelling Practice App
         </h1>
