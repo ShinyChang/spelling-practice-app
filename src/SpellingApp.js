@@ -585,13 +585,87 @@ const SpellingApp = () => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
-                  <div className="bg-gray-50 p-4 rounded-lg shadow-sm flex justify-center">
-                    <button
-                      onClick={() => speakWord()}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center shadow-sm"
-                    >
-                      <span className="mr-2">🔊</span> Listen Again
-                    </button>
+                  <div className="bg-gray-50 p-4 rounded-lg shadow-sm">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          Speech Speed:
+                        </p>
+                        <div className="flex space-x-4">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="speechSpeed"
+                              value="normal"
+                              checked={speechSpeed === "normal"}
+                              onChange={() => setSpeechSpeed("normal")}
+                              className="mr-2"
+                            />
+                            <span className="text-gray-800">Normal</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="speechSpeed"
+                              value="slow"
+                              checked={speechSpeed === "slow"}
+                              onChange={() => setSpeechSpeed("slow")}
+                              className="mr-2"
+                            />
+                            <span className="text-gray-800">Slow</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          Accent:
+                        </p>
+                        <div className="flex flex-wrap gap-4">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="speechAccent"
+                              value="us"
+                              checked={speechAccent === "us"}
+                              onChange={() => setSpeechAccent("us")}
+                              className="mr-2"
+                            />
+                            <span className="text-gray-800">US</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="speechAccent"
+                              value="uk"
+                              checked={speechAccent === "uk"}
+                              onChange={() => setSpeechAccent("uk")}
+                              className="mr-2"
+                            />
+                            <span className="text-gray-800">UK</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="speechAccent"
+                              value="zh-TW"
+                              checked={speechAccent === "zh-TW"}
+                              onChange={() => setSpeechAccent("zh-TW")}
+                              className="mr-2"
+                            />
+                            <span className="text-gray-800">繁體中文</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex justify-center">
+                      <button
+                        onClick={() => speakWord()}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center shadow-sm"
+                      >
+                        <span className="mr-2">🔊</span> Listen Again
+                      </button>
+                    </div>
                   </div>
 
                   <div className="bg-white p-4 rounded-lg border border-gray-200">
