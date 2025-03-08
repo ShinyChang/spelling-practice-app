@@ -380,7 +380,7 @@ const SpellingApp = () => {
         } else {
           setCurrentWordIndex((prevIndex) => prevIndex + 1);
         }
-      }, 2000);
+      }, 5000);
     }
   };
 
