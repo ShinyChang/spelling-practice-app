@@ -1,13 +1,21 @@
 {
   "files": {
-    "main.css": "/spelling-practice-app/static/css/main.e0cf742d.css",
-    "main.js": "/spelling-practice-app/static/js/main.16d6c401.js",
+    "main.css": "/spelling-practice-app/static/css/main.fed2da89.css",
+    "main.js": "/spelling-practice-app/static/js/main.8c5c75d2.js",
+    "static/js/117.9acd7f96.chunk.js": "/spelling-practice-app/static/js/117.9acd7f96.chunk.js",
+    "static/js/284.7f888208.chunk.js": "/spelling-practice-app/static/js/284.7f888208.chunk.js",
+    "static/js/496.eed6775c.chunk.js": "/spelling-practice-app/static/js/496.eed6775c.chunk.js",
+    "static/media/ort-wasm-simd-threaded.jsep.wasm": "/spelling-practice-app/static/media/ort-wasm-simd-threaded.jsep.9b38a8c18d5f4d131491.wasm",
+    "static/media/ort.bundle.min.mjs": "/spelling-practice-app/static/media/ort.bundle.min.2dd0cede91d18059c1c9.mjs",
     "index.html": "/spelling-practice-app/index.html",
-    "main.e0cf742d.css.map": "/spelling-practice-app/static/css/main.e0cf742d.css.map",
-    "main.16d6c401.js.map": "/spelling-practice-app/static/js/main.16d6c401.js.map"
+    "main.fed2da89.css.map": "/spelling-practice-app/static/css/main.fed2da89.css.map",
+    "main.8c5c75d2.js.map": "/spelling-practice-app/static/js/main.8c5c75d2.js.map",
+    "117.9acd7f96.chunk.js.map": "/spelling-practice-app/static/js/117.9acd7f96.chunk.js.map",
+    "284.7f888208.chunk.js.map": "/spelling-practice-app/static/js/284.7f888208.chunk.js.map",
+    "496.eed6775c.chunk.js.map": "/spelling-practice-app/static/js/496.eed6775c.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.e0cf742d.css",
-    "static/js/main.16d6c401.js"
+    "static/css/main.fed2da89.css",
+    "static/js/main.8c5c75d2.js"
   ]
 }
