@@ -402,16 +402,16 @@ const SpellingApp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
-        <h1 className="text-2xl font-bold text-center text-blue-600 mb-6">
+    <div className="min-h-screen bg-gray-900 p-4">
+      <div className="max-w-4xl mx-auto bg-gray-800 rounded-lg shadow-md p-6">
+        <h1 className="text-2xl font-bold text-center text-blue-400 mb-6">
           Spelling Practice App
         </h1>
 
         {!isExamMode ? (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-semibold mb-4">
+              <h2 className="text-xl font-semibold mb-4 text-gray-100">
                 Add Words to Practice
               </h2>
               <div className="flex space-x-2">
@@ -421,7 +421,7 @@ const SpellingApp = () => {
                   onChange={(e) => setNewWord(e.target.value)}
                   onKeyDown={handleKeyDown}
                   ref={inputRef}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-gray-100 placeholder-gray-400"
                   placeholder="Enter a word"
                   autoCapitalize="off"
                 />
@@ -440,7 +440,7 @@ const SpellingApp = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">
+                <p className="text-sm font-medium text-gray-300 mb-2">
                   Speech Speed:
                 </p>
                 <div className="flex space-x-4">
@@ -453,7 +453,7 @@ const SpellingApp = () => {
                       onChange={() => setSpeechSpeed("normal")}
                       className="mr-2"
                     />
-                    <span className="text-gray-800">Normal</span>
+                    <span className="text-gray-100">Normal</span>
                   </label>
                   <label className="flex items-center">
                     <input
@@ -464,13 +464,13 @@ const SpellingApp = () => {
                       onChange={() => setSpeechSpeed("slow")}
                       className="mr-2"
                     />
-                    <span className="text-gray-800">Slow</span>
+                    <span className="text-gray-100">Slow</span>
                   </label>
                 </div>
               </div>
 
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">
+                <p className="text-sm font-medium text-gray-300 mb-2">
                   Accent:
                 </p>
                 <div className="flex flex-wrap gap-4">
@@ -483,7 +483,7 @@ const SpellingApp = () => {
                       onChange={() => setSpeechAccent("us")}
                       className="mr-2"
                     />
-                    <span className="text-gray-800">US</span>
+                    <span className="text-gray-100">US</span>
                   </label>
                   <label className="flex items-center">
                     <input
@@ -494,7 +494,7 @@ const SpellingApp = () => {
                       onChange={() => setSpeechAccent("uk")}
                       className="mr-2"
                     />
-                    <span className="text-gray-800">UK</span>
+                    <span className="text-gray-100">UK</span>
                   </label>
                   <label className="flex items-center">
                     <input
@@ -505,16 +505,16 @@ const SpellingApp = () => {
                       onChange={() => setSpeechAccent("zh-TW")}
                       className="mr-2"
                     />
-                    <span className="text-gray-800">繁體中文</span>
+                    <span className="text-gray-100">繁體中文</span>
                   </label>
                 </div>
               </div>
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-1">
+              <h2 className="text-xl font-semibold mb-1 text-gray-100">
                 Your Word List ({words.length})
               </h2>
-              <p className="text-gray-500 text-sm mb-3">
+              <p className="text-gray-400 text-sm mb-3">
                 Click 🔊 to hear the pronunciation of any word
               </p>
               {words.length > 0 ? (
@@ -522,13 +522,13 @@ const SpellingApp = () => {
                   {words.map((word, index) => (
                     <li
                       key={index}
-                      className="flex justify-between items-center p-2 bg-gray-50 rounded hover:bg-gray-200"
+                      className="flex justify-between items-center p-2 bg-gray-700 rounded hover:bg-gray-600 text-gray-100"
                       onClick={() => speakWord(word)}
                     >
                       <span>{word}</span>
                       <div className="flex space-x-4">
                         <button
-                          className="text-blue-500 hover:text-blue-700"
+                          className="text-blue-400 hover:text-blue-300"
                           title="Listen to pronunciation"
                         >
                           🔊
@@ -538,7 +538,7 @@ const SpellingApp = () => {
                             e.stopPropagation();
                             removeWord(index);
                           }}
-                          className="text-red-500 hover:text-red-700"
+                          className="text-red-400 hover:text-red-300"
                           title="Remove word"
                         >
                           ✕
@@ -548,7 +548,7 @@ const SpellingApp = () => {
                   ))}
                 </ul>
               ) : (
-                <p className="text-gray-500 text-center">No words added yet.</p>
+                <p className="text-gray-400 text-center">No words added yet.</p>
               )}
             </div>
 
@@ -563,8 +563,8 @@ const SpellingApp = () => {
           <div className="space-y-6">
             {isExamComplete ? (
               <div className="text-center space-y-4">
-                <h2 className="text-xl font-semibold">Congratulations! 🎉</h2>
-                <p className="text-green-600">
+                <h2 className="text-xl font-semibold text-gray-100">Congratulations! 🎉</h2>
+                <p className="text-green-400">
                   You've correctly spelled all words!
                 </p>
                 <button
@@ -577,8 +577,8 @@ const SpellingApp = () => {
             ) : (
               <>
                 <div className="text-center mb-6">
-                  <h2 className="text-xl font-semibold mb-1">Spelling Exam</h2>
-                  <p className="text-gray-600">
+                  <h2 className="text-xl font-semibold mb-1 text-gray-100">Spelling Exam</h2>
+                  <p className="text-gray-400">
                     Word {currentWordIndex + 1} of {examWords.length}
                     {incorrectWords.length > 0 &&
                       ` (${incorrectWords.length} incorrect)`}
@@ -586,10 +586,10 @@ const SpellingApp = () => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
-                  <div className="bg-gray-50 p-4 rounded-lg shadow-sm">
+                  <div className="bg-gray-700 p-4 rounded-lg shadow-sm">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">
+                        <p className="text-sm font-medium text-gray-300 mb-2">
                           Speech Speed:
                         </p>
                         <div className="flex space-x-4">
@@ -602,7 +602,7 @@ const SpellingApp = () => {
                               onChange={() => setSpeechSpeed("normal")}
                               className="mr-2"
                             />
-                            <span className="text-gray-800">Normal</span>
+                            <span className="text-gray-100">Normal</span>
                           </label>
                           <label className="flex items-center">
                             <input
@@ -613,13 +613,13 @@ const SpellingApp = () => {
                               onChange={() => setSpeechSpeed("slow")}
                               className="mr-2"
                             />
-                            <span className="text-gray-800">Slow</span>
+                            <span className="text-gray-100">Slow</span>
                           </label>
                         </div>
                       </div>
 
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">
+                        <p className="text-sm font-medium text-gray-300 mb-2">
                           Accent:
                         </p>
                         <div className="flex flex-wrap gap-4">
@@ -632,7 +632,7 @@ const SpellingApp = () => {
                               onChange={() => setSpeechAccent("us")}
                               className="mr-2"
                             />
-                            <span className="text-gray-800">US</span>
+                            <span className="text-gray-100">US</span>
                           </label>
                           <label className="flex items-center">
                             <input
@@ -643,7 +643,7 @@ const SpellingApp = () => {
                               onChange={() => setSpeechAccent("uk")}
                               className="mr-2"
                             />
-                            <span className="text-gray-800">UK</span>
+                            <span className="text-gray-100">UK</span>
                           </label>
                           <label className="flex items-center">
                             <input
@@ -654,7 +654,7 @@ const SpellingApp = () => {
                               onChange={() => setSpeechAccent("zh-TW")}
                               className="mr-2"
                             />
-                            <span className="text-gray-800">繁體中文</span>
+                            <span className="text-gray-100">繁體中文</span>
                           </label>
                         </div>
                       </div>
@@ -669,10 +669,10 @@ const SpellingApp = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                  <div className="bg-gray-700 p-4 rounded-lg border border-gray-600">
                     <label
                       htmlFor="answer"
-                      className="block text-sm font-medium text-gray-700 mb-2"
+                      className="block text-sm font-medium text-gray-300 mb-2"
                     >
                       Type the word you hear:
                     </label>
@@ -683,7 +683,7 @@ const SpellingApp = () => {
                       onChange={(e) => setUserAnswer(e.target.value)}
                       onKeyDown={handleKeyDown}
                       ref={examInputRef}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                      className="w-full px-4 py-3 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg bg-gray-800 text-gray-100 placeholder-gray-400"
                       placeholder="Type your answer here"
                       autoComplete="off"
                       autoCorrect="off"
@@ -695,7 +695,7 @@ const SpellingApp = () => {
 
                 {feedback && (
                   <div
-                    className={`my-4 py-3 px-4 rounded-md ${feedbackColor === "text-green-600" ? "bg-green-50" : feedbackColor === "text-red-600" ? "bg-red-50" : "bg-blue-50"}`}
+                    className={`my-4 py-3 px-4 rounded-md ${feedbackColor === "text-green-600" ? "bg-green-900" : feedbackColor === "text-red-600" ? "bg-red-900" : "bg-blue-900"}`}
                   >
                     <p className={`${feedbackColor} text-center font-medium`}>
                       {feedback}
@@ -706,7 +706,7 @@ const SpellingApp = () => {
                 <div className="flex space-x-4 mt-6">
                   <button
                     onClick={exitExam}
-                    className="flex-1 py-3 bg-gray-100 text-gray-800 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 font-medium"
+                    className="flex-1 py-3 bg-gray-700 text-gray-100 border border-gray-600 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 font-medium"
                   >
                     Exit Exam
                   </button>
