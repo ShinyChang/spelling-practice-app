@@ -1,4 +1,15 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useSpeechSettings } from "./hooks/useSpeechSettings";
+import {
+  PROVIDERS,
+  WebSpeechProvider,
+  PiperProvider,
+} from "./speech";
+import {
+  PIPER_VOICES,
+  getPiperVoiceForAccent,
+  isPiperSupportedAccent,
+} from "./speech/voiceModels";
 
 const SpellingApp = () => {
   const [words, setWords] = useState([]);
@@ -11,9 +22,15 @@ const SpellingApp = () => {
   const [feedbackColor, setFeedbackColor] = useState("");
   const [isExamComplete, setIsExamComplete] = useState(false);
   const [incorrectWords, setIncorrectWords] = useState([]);
-  const [speechSpeed, setSpeechSpeed] = useState("normal"); // 'normal' or 'slow'
-  const [speechAccent, setSpeechAccent] = useState("us"); // 'us' or 'uk'
-  const [availableVoices, setAvailableVoices] = useState([]);
+
+  // Speech settings (persisted to localStorage)
+  const { settings, updateSetting } = useSpeechSettings();
+
+  // Speech provider state
+  const [speechProvider, setSpeechProvider] = useState(null);
+  const [isPiperLoading, setIsPiperLoading] = useState(false);
+  const [piperLoadProgress, setPiperLoadProgress] = useState(0);
+  const webSpeechProviderRef = useRef(null);
 
   const inputRef = useRef(null);
   const examInputRef = useRef(null);
@@ -80,63 +97,69 @@ const SpellingApp = () => {
     localStorage.setItem("spellingAppWords", JSON.stringify(words));
   }, [words]);
 
-  // Load available voices
+  // Initialize WebSpeechProvider once
   useEffect(() => {
-    const loadVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      setAvailableVoices(voices);
-    };
-
-    // Load voices on init
-    loadVoices();
-
-    // Chrome loads voices asynchronously
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
+    webSpeechProviderRef.current = new WebSpeechProvider();
+    setSpeechProvider(webSpeechProviderRef.current);
   }, []);
 
-  // Get the appropriate voice based on selected accent
-  const getVoice = React.useCallback(() => {
-    let langCode;
+  // Initialize or switch speech provider based on settings
+  useEffect(() => {
+    const initProvider = async () => {
+      if (settings.provider === PROVIDERS.WEB_SPEECH) {
+        // Use Web Speech API
+        if (!webSpeechProviderRef.current) {
+          webSpeechProviderRef.current = new WebSpeechProvider();
+        }
+        setSpeechProvider(webSpeechProviderRef.current);
+        setIsPiperLoading(false);
+        setPiperLoadProgress(0);
+      } else if (settings.provider === PROVIDERS.PIPER) {
+        // Check if Piper supports current accent
+        const piperVoice = getPiperVoiceForAccent(settings.accent);
+        if (!piperVoice) {
+          // Fallback to Web Speech for unsupported accents
+          if (!webSpeechProviderRef.current) {
+            webSpeechProviderRef.current = new WebSpeechProvider();
+          }
+          setSpeechProvider(webSpeechProviderRef.current);
+          return;
+        }
 
-    switch (speechAccent) {
-      case "us":
-        langCode = "en-US";
-        break;
-      case "uk":
-        langCode = "en-GB";
-        break;
-      case "zh-TW":
-        langCode = "zh-TW";
-        break;
-      default:
-        langCode = "en-US";
-    }
+        // Initialize Piper
+        setIsPiperLoading(true);
+        setPiperLoadProgress(0);
 
-    // First try to find a voice that matches the exact language code
-    let voice = availableVoices.find((v) => v.lang === langCode);
+        try {
+          const piper = new PiperProvider();
+          piper.setProgressCallback((progress) => {
+            setPiperLoadProgress(progress);
+          });
+          await piper.initialize(settings.piperVoice || piperVoice);
+          setSpeechProvider(piper);
+        } catch (error) {
+          console.error("Failed to initialize Piper, falling back to Web Speech:", error);
+          // Fallback to Web Speech on error
+          updateSetting("provider", PROVIDERS.WEB_SPEECH);
+          if (!webSpeechProviderRef.current) {
+            webSpeechProviderRef.current = new WebSpeechProvider();
+          }
+          setSpeechProvider(webSpeechProviderRef.current);
+        } finally {
+          setIsPiperLoading(false);
+        }
+      }
+    };
 
-    // If no exact match, look for voices containing the right country code
-    if (!voice) {
-      const countryCode =
-        speechAccent === "us" ? "US" : speechAccent === "uk" ? "GB" : "TW";
-      voice = availableVoices.find((v) => v.lang.includes(countryCode));
-    }
+    initProvider();
+  }, [settings.provider, settings.piperVoice, settings.accent, updateSetting]);
 
-    // Fallback to any English voice if specific accent not available
-    if (!voice) {
-      voice = availableVoices.find((v) => v.lang.includes("en"));
-    }
-
-    return voice;
-  }, [speechAccent, availableVoices]);
-
-  // Speak a word using TTS - moved up to prevent "used before defined" errors
-  const speakWord = React.useCallback(
-    (specificWord = null) => {
+  // Speak a word using TTS - uses the current speech provider
+  const speakWord = useCallback(
+    async (specificWord = null) => {
       // Don't speak in exam mode if the exam is complete
       if (isExamMode && isExamComplete) return;
+      if (!speechProvider) return;
 
       // Determine which word to speak
       let wordToSpeak;
@@ -152,31 +175,49 @@ const SpellingApp = () => {
       if (!wordToSpeak) return;
 
       // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
-
-      // Create a new utterance
-      const utterance = new SpeechSynthesisUtterance(wordToSpeak);
-
-      // Set speech rate based on user preference
-      utterance.rate = speechSpeed === "normal" ? 1 : 0.7;
-      utterance.pitch = 1;
-
-      // Set voice based on user preference
-      const voice = getVoice();
-      if (voice) {
-        utterance.voice = voice;
+      if (speechProvider.cancel) {
+        speechProvider.cancel();
       }
 
-      // Speak the word
-      window.speechSynthesis.speak(utterance);
+      try {
+        // Determine voice options based on provider type
+        const isPiper = settings.provider === PROVIDERS.PIPER;
+        const piperVoice = getPiperVoiceForAccent(settings.accent);
+
+        // Use Piper if selected and supported for this accent
+        if (isPiper && piperVoice && speechProvider instanceof PiperProvider) {
+          await speechProvider.speak(wordToSpeak, {
+            speed: settings.speed,
+            voiceId: settings.piperVoice || piperVoice,
+          });
+        } else {
+          // Use Web Speech API
+          await speechProvider.speak(wordToSpeak, {
+            speed: settings.speed,
+            accent: settings.accent,
+          });
+        }
+      } catch (error) {
+        console.error("Speech error:", error);
+        // Try fallback to Web Speech on error
+        if (webSpeechProviderRef.current) {
+          await webSpeechProviderRef.current.speak(wordToSpeak, {
+            speed: settings.speed,
+            accent: settings.accent,
+          });
+        }
+      }
     },
     [
       isExamMode,
       isExamComplete,
       examWords,
       currentWordIndex,
-      speechSpeed,
-      getVoice,
+      speechProvider,
+      settings.provider,
+      settings.speed,
+      settings.accent,
+      settings.piperVoice,
     ],
   );
 
@@ -386,7 +427,10 @@ const SpellingApp = () => {
 
   const exitExam = () => {
     // Stop any ongoing speech
-    window.speechSynthesis.cancel();
+    if (speechProvider && speechProvider.cancel) {
+      speechProvider.cancel();
+    }
+    window.speechSynthesis.cancel(); // Also cancel Web Speech just in case
     setIsExamMode(false);
     setFeedback("");
   };
@@ -438,6 +482,55 @@ const SpellingApp = () => {
               <p className={`${feedbackColor} text-center`}>{feedback}</p>
             )}
 
+            {/* Voice Engine Selection */}
+            <div className="bg-gray-700 p-4 rounded-lg mb-4">
+              <p className="text-sm font-medium text-gray-300 mb-2">
+                Voice Engine:
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="voiceEngine"
+                    value="webSpeech"
+                    checked={settings.provider === PROVIDERS.WEB_SPEECH}
+                    onChange={() => updateSetting("provider", PROVIDERS.WEB_SPEECH)}
+                    className="mr-2"
+                  />
+                  <span className="text-gray-100">Standard</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="voiceEngine"
+                    value="piper"
+                    checked={settings.provider === PROVIDERS.PIPER}
+                    onChange={() => updateSetting("provider", PROVIDERS.PIPER)}
+                    className="mr-2"
+                    disabled={!isPiperSupportedAccent(settings.accent)}
+                  />
+                  <span className={`${!isPiperSupportedAccent(settings.accent) ? "text-gray-500" : "text-gray-100"}`}>
+                    Enhanced (Neural)
+                  </span>
+                  {isPiperLoading && (
+                    <span className="ml-2 text-yellow-400 text-sm">
+                      Loading... {Math.round(piperLoadProgress * 100)}%
+                    </span>
+                  )}
+                </label>
+              </div>
+              {settings.provider === PROVIDERS.PIPER && isPiperSupportedAccent(settings.accent) && (
+                <p className="text-xs text-gray-400 mt-2">
+                  First use downloads ~20MB voice model (cached for future use)
+                </p>
+              )}
+              {!isPiperSupportedAccent(settings.accent) && (
+                <p className="text-xs text-yellow-500 mt-2">
+                  Enhanced voice not available for this accent
+                </p>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-gray-300 mb-2">
@@ -449,8 +542,8 @@ const SpellingApp = () => {
                       type="radio"
                       name="speechSpeed"
                       value="normal"
-                      checked={speechSpeed === "normal"}
-                      onChange={() => setSpeechSpeed("normal")}
+                      checked={settings.speed === "normal"}
+                      onChange={() => updateSetting("speed", "normal")}
                       className="mr-2"
                     />
                     <span className="text-gray-100">Normal</span>
@@ -460,8 +553,8 @@ const SpellingApp = () => {
                       type="radio"
                       name="speechSpeed"
                       value="slow"
-                      checked={speechSpeed === "slow"}
-                      onChange={() => setSpeechSpeed("slow")}
+                      checked={settings.speed === "slow"}
+                      onChange={() => updateSetting("speed", "slow")}
                       className="mr-2"
                     />
                     <span className="text-gray-100">Slow</span>
@@ -479,8 +572,8 @@ const SpellingApp = () => {
                       type="radio"
                       name="speechAccent"
                       value="us"
-                      checked={speechAccent === "us"}
-                      onChange={() => setSpeechAccent("us")}
+                      checked={settings.accent === "us"}
+                      onChange={() => updateSetting("accent", "us")}
                       className="mr-2"
                     />
                     <span className="text-gray-100">US</span>
@@ -490,8 +583,8 @@ const SpellingApp = () => {
                       type="radio"
                       name="speechAccent"
                       value="uk"
-                      checked={speechAccent === "uk"}
-                      onChange={() => setSpeechAccent("uk")}
+                      checked={settings.accent === "uk"}
+                      onChange={() => updateSetting("accent", "uk")}
                       className="mr-2"
                     />
                     <span className="text-gray-100">UK</span>
@@ -501,8 +594,8 @@ const SpellingApp = () => {
                       type="radio"
                       name="speechAccent"
                       value="zh-TW"
-                      checked={speechAccent === "zh-TW"}
-                      onChange={() => setSpeechAccent("zh-TW")}
+                      checked={settings.accent === "zh-TW"}
+                      onChange={() => updateSetting("accent", "zh-TW")}
                       className="mr-2"
                     />
                     <span className="text-gray-100">繁體中文</span>
@@ -510,6 +603,33 @@ const SpellingApp = () => {
                 </div>
               </div>
             </div>
+
+            {/* Piper Voice Selection - only show when Piper is selected and supported */}
+            {settings.provider === PROVIDERS.PIPER && isPiperSupportedAccent(settings.accent) && (
+              <div className="mt-4">
+                <p className="text-sm font-medium text-gray-300 mb-2">
+                  Neural Voice:
+                </p>
+                <select
+                  value={settings.piperVoice}
+                  onChange={(e) => updateSetting("piperVoice", e.target.value)}
+                  className="bg-gray-700 text-gray-100 rounded px-3 py-2 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {settings.accent === "us" &&
+                    PIPER_VOICES.en_US.map((voice) => (
+                      <option key={voice.id} value={voice.id}>
+                        {voice.name} ({voice.quality})
+                      </option>
+                    ))}
+                  {settings.accent === "uk" &&
+                    PIPER_VOICES.en_GB.map((voice) => (
+                      <option key={voice.id} value={voice.id}>
+                        {voice.name} ({voice.quality})
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
             <div>
               <h2 className="text-xl font-semibold mb-1 text-gray-100">
                 Your Word List ({words.length})
@@ -587,6 +707,14 @@ const SpellingApp = () => {
 
                 <div className="grid grid-cols-1 gap-6">
                   <div className="bg-gray-700 p-4 rounded-lg shadow-sm">
+                    {/* Voice Engine indicator in exam mode */}
+                    <div className="mb-3 pb-3 border-b border-gray-600">
+                      <span className="text-xs text-gray-400">
+                        Voice: {settings.provider === PROVIDERS.PIPER && isPiperSupportedAccent(settings.accent) ? "Enhanced (Neural)" : "Standard"}
+                        {isPiperLoading && ` - Loading ${Math.round(piperLoadProgress * 100)}%`}
+                      </span>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm font-medium text-gray-300 mb-2">
@@ -596,10 +724,10 @@ const SpellingApp = () => {
                           <label className="flex items-center">
                             <input
                               type="radio"
-                              name="speechSpeed"
+                              name="examSpeechSpeed"
                               value="normal"
-                              checked={speechSpeed === "normal"}
-                              onChange={() => setSpeechSpeed("normal")}
+                              checked={settings.speed === "normal"}
+                              onChange={() => updateSetting("speed", "normal")}
                               className="mr-2"
                             />
                             <span className="text-gray-100">Normal</span>
@@ -607,10 +735,10 @@ const SpellingApp = () => {
                           <label className="flex items-center">
                             <input
                               type="radio"
-                              name="speechSpeed"
+                              name="examSpeechSpeed"
                               value="slow"
-                              checked={speechSpeed === "slow"}
-                              onChange={() => setSpeechSpeed("slow")}
+                              checked={settings.speed === "slow"}
+                              onChange={() => updateSetting("speed", "slow")}
                               className="mr-2"
                             />
                             <span className="text-gray-100">Slow</span>
@@ -626,10 +754,10 @@ const SpellingApp = () => {
                           <label className="flex items-center">
                             <input
                               type="radio"
-                              name="speechAccent"
+                              name="examSpeechAccent"
                               value="us"
-                              checked={speechAccent === "us"}
-                              onChange={() => setSpeechAccent("us")}
+                              checked={settings.accent === "us"}
+                              onChange={() => updateSetting("accent", "us")}
                               className="mr-2"
                             />
                             <span className="text-gray-100">US</span>
@@ -637,10 +765,10 @@ const SpellingApp = () => {
                           <label className="flex items-center">
                             <input
                               type="radio"
-                              name="speechAccent"
+                              name="examSpeechAccent"
                               value="uk"
-                              checked={speechAccent === "uk"}
-                              onChange={() => setSpeechAccent("uk")}
+                              checked={settings.accent === "uk"}
+                              onChange={() => updateSetting("accent", "uk")}
                               className="mr-2"
                             />
                             <span className="text-gray-100">UK</span>
@@ -648,10 +776,10 @@ const SpellingApp = () => {
                           <label className="flex items-center">
                             <input
                               type="radio"
-                              name="speechAccent"
+                              name="examSpeechAccent"
                               value="zh-TW"
-                              checked={speechAccent === "zh-TW"}
-                              onChange={() => setSpeechAccent("zh-TW")}
+                              checked={settings.accent === "zh-TW"}
+                              onChange={() => updateSetting("accent", "zh-TW")}
                               className="mr-2"
                             />
                             <span className="text-gray-100">繁體中文</span>
