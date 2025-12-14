@@ -37,9 +37,17 @@ export class WebSpeechProvider {
 
     // If no exact match, look for voices containing the right country code
     if (!voice) {
-      const countryCode =
-        accent === "us" ? "US" : accent === "uk" ? "GB" : "TW";
+      let countryCode;
+      if (accent === "us") countryCode = "US";
+      else if (accent === "uk") countryCode = "GB";
+      else if (accent === "zh-TW") countryCode = "TW";
+      else countryCode = "US";
       voice = this.voices.find((v) => v.lang.includes(countryCode));
+    }
+
+    // For Chinese, try to find any Chinese voice if specific variant not available
+    if (!voice && accent === "zh-TW") {
+      voice = this.voices.find((v) => v.lang.startsWith("zh"));
     }
 
     // Fallback to any English voice if specific accent not available

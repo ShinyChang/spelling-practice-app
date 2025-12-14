@@ -4,11 +4,15 @@ import {
   PROVIDERS,
   WebSpeechProvider,
   PiperProvider,
+  EdgeTtsProvider,
 } from "./speech";
 import {
   PIPER_VOICES,
   getPiperVoiceForAccent,
   isPiperSupportedAccent,
+  isEdgeTtsSupportedAccent,
+  getEdgeTtsVoiceForAccent,
+  getEdgeTtsVoicesForAccent,
 } from "./speech/voiceModels";
 
 const SpellingApp = () => {
@@ -148,11 +152,34 @@ const SpellingApp = () => {
         } finally {
           setIsPiperLoading(false);
         }
+      } else if (settings.provider === PROVIDERS.EDGE_TTS) {
+        // Check if Edge TTS supports current accent (Chinese only)
+        if (!isEdgeTtsSupportedAccent(settings.accent)) {
+          // Fallback to Web Speech for non-Chinese accents
+          if (!webSpeechProviderRef.current) {
+            webSpeechProviderRef.current = new WebSpeechProvider();
+          }
+          setSpeechProvider(webSpeechProviderRef.current);
+          return;
+        }
+
+        // Initialize Edge TTS
+        try {
+          const edgeTts = new EdgeTtsProvider();
+          setSpeechProvider(edgeTts);
+        } catch (error) {
+          console.error("Failed to initialize Edge TTS, falling back to Web Speech:", error);
+          updateSetting("provider", PROVIDERS.WEB_SPEECH);
+          if (!webSpeechProviderRef.current) {
+            webSpeechProviderRef.current = new WebSpeechProvider();
+          }
+          setSpeechProvider(webSpeechProviderRef.current);
+        }
       }
     };
 
     initProvider();
-  }, [settings.provider, settings.piperVoice, settings.accent, updateSetting]);
+  }, [settings.provider, settings.piperVoice, settings.edgeTtsVoice, settings.accent, updateSetting]);
 
   // Speak a word using TTS - uses the current speech provider
   const speakWord = useCallback(
@@ -182,10 +209,19 @@ const SpellingApp = () => {
       try {
         // Determine voice options based on provider type
         const isPiper = settings.provider === PROVIDERS.PIPER;
+        const isEdgeTts = settings.provider === PROVIDERS.EDGE_TTS;
         const piperVoice = getPiperVoiceForAccent(settings.accent);
+        const edgeTtsVoice = getEdgeTtsVoiceForAccent(settings.accent);
 
+        // Use Edge TTS for Chinese accents if selected
+        if (isEdgeTts && edgeTtsVoice && speechProvider instanceof EdgeTtsProvider) {
+          await speechProvider.speak(wordToSpeak, {
+            speed: settings.speed,
+            voiceId: settings.edgeTtsVoice || edgeTtsVoice,
+          });
+        }
         // Use Piper if selected and supported for this accent
-        if (isPiper && piperVoice && speechProvider instanceof PiperProvider) {
+        else if (isPiper && piperVoice && speechProvider instanceof PiperProvider) {
           await speechProvider.speak(wordToSpeak, {
             speed: settings.speed,
             voiceId: settings.piperVoice || piperVoice,
@@ -218,6 +254,7 @@ const SpellingApp = () => {
       settings.speed,
       settings.accent,
       settings.piperVoice,
+      settings.edgeTtsVoice,
     ],
   );
 
@@ -518,15 +555,39 @@ const SpellingApp = () => {
                     </span>
                   )}
                 </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="voiceEngine"
+                    value="edgeTts"
+                    checked={settings.provider === PROVIDERS.EDGE_TTS}
+                    onChange={() => updateSetting("provider", PROVIDERS.EDGE_TTS)}
+                    className="mr-2"
+                    disabled={!isEdgeTtsSupportedAccent(settings.accent)}
+                  />
+                  <span className={`${!isEdgeTtsSupportedAccent(settings.accent) ? "text-gray-500" : "text-gray-100"}`}>
+                    AI Voice (中文)
+                  </span>
+                </label>
               </div>
               {settings.provider === PROVIDERS.PIPER && isPiperSupportedAccent(settings.accent) && (
                 <p className="text-xs text-gray-400 mt-2">
                   First use downloads ~20MB voice model (cached for future use)
                 </p>
               )}
-              {!isPiperSupportedAccent(settings.accent) && (
+              {settings.provider === PROVIDERS.EDGE_TTS && isEdgeTtsSupportedAccent(settings.accent) && (
+                <p className="text-xs text-gray-400 mt-2">
+                  High-quality Microsoft neural voice for Mandarin pronunciation
+                </p>
+              )}
+              {!isPiperSupportedAccent(settings.accent) && !isEdgeTtsSupportedAccent(settings.accent) && (
                 <p className="text-xs text-yellow-500 mt-2">
                   Enhanced voice not available for this accent
+                </p>
+              )}
+              {isEdgeTtsSupportedAccent(settings.accent) && settings.provider !== PROVIDERS.EDGE_TTS && (
+                <p className="text-xs text-blue-400 mt-2">
+                  Try AI Voice for high-quality Mandarin pronunciation
                 </p>
               )}
             </div>
@@ -630,6 +691,26 @@ const SpellingApp = () => {
                 </select>
               </div>
             )}
+
+            {/* Edge TTS Voice Selection - only show when Edge TTS is selected and Chinese accent */}
+            {settings.provider === PROVIDERS.EDGE_TTS && isEdgeTtsSupportedAccent(settings.accent) && (
+              <div className="mt-4">
+                <p className="text-sm font-medium text-gray-300 mb-2">
+                  AI Voice:
+                </p>
+                <select
+                  value={settings.edgeTtsVoice}
+                  onChange={(e) => updateSetting("edgeTtsVoice", e.target.value)}
+                  className="bg-gray-700 text-gray-100 rounded px-3 py-2 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {getEdgeTtsVoicesForAccent(settings.accent).map((voice) => (
+                    <option key={voice.id} value={voice.id}>
+                      {voice.name} - {voice.description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <h2 className="text-xl font-semibold mb-1 text-gray-100">
                 Your Word List ({words.length})
@@ -710,7 +791,11 @@ const SpellingApp = () => {
                     {/* Voice Engine indicator in exam mode */}
                     <div className="mb-3 pb-3 border-b border-gray-600">
                       <span className="text-xs text-gray-400">
-                        Voice: {settings.provider === PROVIDERS.PIPER && isPiperSupportedAccent(settings.accent) ? "Enhanced (Neural)" : "Standard"}
+                        Voice: {settings.provider === PROVIDERS.EDGE_TTS && isEdgeTtsSupportedAccent(settings.accent)
+                          ? "AI Voice (中文)"
+                          : settings.provider === PROVIDERS.PIPER && isPiperSupportedAccent(settings.accent)
+                            ? "Enhanced (Neural)"
+                            : "Standard"}
                         {isPiperLoading && ` - Loading ${Math.round(piperLoadProgress * 100)}%`}
                       </span>
                     </div>

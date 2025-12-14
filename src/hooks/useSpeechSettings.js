@@ -4,10 +4,11 @@ import { PROVIDERS } from "../speech";
 const STORAGE_KEY = "spellingAppSpeechSettings";
 
 const defaultSettings = {
-  provider: PROVIDERS.WEB_SPEECH, // 'webSpeech' or 'piper'
+  provider: PROVIDERS.WEB_SPEECH, // 'webSpeech', 'piper', or 'edgeTts'
   speed: "normal", // 'normal' or 'slow'
   accent: "us", // 'us', 'uk', or 'zh-TW'
   piperVoice: "en_US-hfc_female-medium", // Selected Piper voice
+  edgeTtsVoice: "zh-TW-HsiaoChenNeural", // Selected Edge TTS voice (Traditional Chinese)
 };
 
 /**
