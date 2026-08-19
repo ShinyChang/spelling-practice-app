@@ -43,8 +43,10 @@ const SpellingApp = () => {
 
     if (wordListParam) {
       try {
-        // Decode and parse the word list
-        const decodedWords = decodeURIComponent(wordListParam);
+        // Links shared before the double-encoding fix carry a second layer of escaping.
+        const decodedWords = /%[0-9A-Fa-f]{2}/.test(wordListParam)
+          ? decodeURIComponent(wordListParam)
+          : wordListParam;
         const parsedWords = decodedWords.split(",").map((word) => word.trim());
 
         // Filter out empty words
@@ -78,9 +80,9 @@ const SpellingApp = () => {
     try {
       // Only update URL after initial render (when words.length > 0)
       if (words.length > 0) {
-        const wordListParam = encodeURIComponent(words.join(","));
         const url = new URL(window.location.href);
-        url.searchParams.set("words", wordListParam);
+        // searchParams.set escapes on its own; pre-encoding double-escaped the commas.
+        url.searchParams.set("words", words.join(","));
         // Using only search part to maintain path compatibility with GitHub Pages
         window.history.replaceState({}, "", url.search);
       } else if (words.length === 0) {
