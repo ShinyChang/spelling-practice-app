@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSpeechSettings } from "./hooks/useSpeechSettings";
 import {
   PROVIDERS,
@@ -10,6 +10,19 @@ import {
   getPiperVoiceForAccent,
   isPiperSupportedAccent,
 } from "./speech/voiceModels";
+import { WORD_LISTS, collectWords } from "./wordLists";
+
+const QUIZ_SIZES = [20, 50, 100, 0];
+
+// Fisher-Yates shuffle
+const shuffleArray = (array) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
 
 const SpellingApp = () => {
   const [words, setWords] = useState([]);
@@ -23,6 +36,13 @@ const SpellingApp = () => {
   const [isExamComplete, setIsExamComplete] = useState(false);
   const [incorrectWords, setIncorrectWords] = useState([]);
 
+  // The exam draws from its own pool so a preset quiz never overwrites the saved word list.
+  const [examSource, setExamSource] = useState([]);
+  const [examLabel, setExamLabel] = useState("");
+  const [reviewMissedOnly, setReviewMissedOnly] = useState(false);
+  const [quizListIds, setQuizListIds] = useState([WORD_LISTS[0].id]);
+  const [quizCount, setQuizCount] = useState(100);
+
   // Speech settings (persisted to localStorage)
   const { settings, updateSetting } = useSpeechSettings();
 
@@ -34,6 +54,27 @@ const SpellingApp = () => {
 
   const inputRef = useRef(null);
   const examInputRef = useRef(null);
+
+  const quizPool = useMemo(() => collectWords(quizListIds), [quizListIds]);
+  const quizSize =
+    quizCount === 0 ? quizPool.length : Math.min(quizCount, quizPool.length);
+
+  const startNextRound = useCallback(
+    (missedWords) => {
+      setExamWords(shuffleArray(reviewMissedOnly ? missedWords : examSource));
+      setIncorrectWords([]);
+      setCurrentWordIndex(0);
+    },
+    [reviewMissedOnly, examSource],
+  );
+
+  const roundOverMessage = useCallback(
+    (missedWords) =>
+      reviewMissedOnly
+        ? `${missedWords.length} to review. Let's try those again.`
+        : "Some words were incorrect. Let's try again with all words.",
+    [reviewMissedOnly],
+  );
 
   // Check for URL parameters and load word list on initial render
   useEffect(() => {
@@ -236,9 +277,10 @@ const SpellingApp = () => {
         setFeedback(`Focus lost! The word was "${currentWord}".`);
         setFeedbackColor("text-red-600");
 
-        if (!incorrectWords.includes(currentWord)) {
-          setIncorrectWords([...incorrectWords, currentWord]);
-        }
+        const missed = incorrectWords.includes(currentWord)
+          ? incorrectWords
+          : [...incorrectWords, currentWord];
+        setIncorrectWords(missed);
 
         // Wait a moment before moving to the next word
         setTimeout(() => {
@@ -246,21 +288,14 @@ const SpellingApp = () => {
           setUserAnswer("");
 
           if (currentWordIndex === examWords.length - 1) {
-            // Restart exam with ALL words if any were incorrect
-            setFeedback(
-              "Some words were incorrect. Let's try again with all words.",
-            );
+            setFeedback(roundOverMessage(missed));
             setFeedbackColor("text-blue-600");
             setTimeout(() => {
               // Clear feedback and user answer
               setFeedback("");
               setUserAnswer("");
 
-              // Reset exam state with shuffled words
-              const shuffledWords = shuffleArray(words);
-              setExamWords(shuffledWords);
-              setIncorrectWords([]);
-              setCurrentWordIndex(0);
+              startNextRound(missed);
 
               // Force TTS to speak the first word after a short delay
               setTimeout(() => {
@@ -289,8 +324,9 @@ const SpellingApp = () => {
     currentWordIndex,
     examWords,
     incorrectWords,
-    words,
     speakWord,
+    startNextRound,
+    roundOverMessage,
   ]);
   useEffect(() => {
     // When starting or restarting an exam, speak the first word after a short delay
@@ -301,16 +337,6 @@ const SpellingApp = () => {
       return () => clearTimeout(timer);
     }
   }, [examWords, isExamMode, isExamComplete, speakWord]);
-
-  // Shuffle an array using Fisher-Yates algorithm
-  const shuffleArray = (array) => {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
 
   const addWord = () => {
     if (newWord.trim()) {
@@ -333,19 +359,11 @@ const SpellingApp = () => {
     setWords(words.filter((_, index) => index !== indexToRemove));
   };
 
-  const startExam = () => {
-    if (words.length === 0) {
-      setFeedback("Please add some words first.");
-      setFeedbackColor("text-yellow-600");
-      setTimeout(() => setFeedback(""), 2000);
-      return;
-    }
-
-    // Shuffle the words for the exam
-    const shuffledWords = shuffleArray(words);
-
-    // Set exam state
-    setExamWords(shuffledWords);
+  const beginExam = (pool, { label = "", missedOnly = false } = {}) => {
+    setExamSource(pool);
+    setExamLabel(label);
+    setReviewMissedOnly(missedOnly);
+    setExamWords(shuffleArray(pool));
     setIsExamMode(true);
     setCurrentWordIndex(0);
     setUserAnswer("");
@@ -361,9 +379,47 @@ const SpellingApp = () => {
     }, 100);
   };
 
+  const startExam = () => {
+    if (words.length === 0) {
+      setFeedback("Please add some words first.");
+      setFeedbackColor("text-yellow-600");
+      setTimeout(() => setFeedback(""), 2000);
+      return;
+    }
+
+    beginExam(words);
+  };
+
+  const toggleQuizList = (id) => {
+    setQuizListIds((prev) =>
+      prev.includes(id) ? prev.filter((listId) => listId !== id) : [...prev, id],
+    );
+  };
+
+  const startQuiz = () => {
+    if (quizPool.length === 0) {
+      setFeedback("Please choose at least one word list.");
+      setFeedbackColor("text-yellow-600");
+      setTimeout(() => setFeedback(""), 2000);
+      return;
+    }
+
+    const label = WORD_LISTS.filter((list) => quizListIds.includes(list.id))
+      .map((list) => list.name)
+      .join(" + ");
+
+    // A 100-word round is unreachable if one slip restarts it, so a quiz re-tests only what was missed.
+    beginExam(shuffleArray(quizPool).slice(0, quizSize), {
+      label,
+      missedOnly: true,
+    });
+  };
+
   const checkAnswer = () => {
     const currentWord = examWords[currentWordIndex];
-    const isCorrect = userAnswer.trim() === currentWord;
+    // The lists carry proper nouns and abbreviations, so capitalisation is not what is being tested.
+    const isCorrect =
+      userAnswer.trim().toLowerCase() === currentWord.toLowerCase();
 
     if (isCorrect) {
       setFeedback("Correct!");
@@ -378,17 +434,11 @@ const SpellingApp = () => {
             // Only complete the exam if all words were correct in this round
             setIsExamComplete(true);
           } else {
-            // Restart exam with ALL words if any were incorrect
-            setFeedback(
-              "Some words were incorrect. Let's try again with all words.",
-            );
+            setFeedback(roundOverMessage(incorrectWords));
             setFeedbackColor("text-blue-600");
             setTimeout(() => {
               setFeedback("");
-              // Shuffle all original words again
-              setExamWords(shuffleArray(words));
-              setIncorrectWords([]);
-              setCurrentWordIndex(0);
+              startNextRound(incorrectWords);
             }, 2000);
           }
         } else {
@@ -399,26 +449,21 @@ const SpellingApp = () => {
       setFeedback(`Incorrect! The word was "${currentWord}".`);
       setFeedbackColor("text-red-600");
 
-      if (!incorrectWords.includes(currentWord)) {
-        setIncorrectWords([...incorrectWords, currentWord]);
-      }
+      const missed = incorrectWords.includes(currentWord)
+        ? incorrectWords
+        : [...incorrectWords, currentWord];
+      setIncorrectWords(missed);
 
       setTimeout(() => {
         setFeedback("");
         setUserAnswer("");
 
         if (currentWordIndex === examWords.length - 1) {
-          // Restart exam with ALL words if any were incorrect
-          setFeedback(
-            "Some words were incorrect. Let's try again with all words.",
-          );
+          setFeedback(roundOverMessage(missed));
           setFeedbackColor("text-blue-600");
           setTimeout(() => {
             setFeedback("");
-            // Shuffle all original words again
-            setExamWords(shuffleArray(words));
-            setIncorrectWords([]);
-            setCurrentWordIndex(0);
+            startNextRound(missed);
           }, 2000);
         } else {
           setCurrentWordIndex((prevIndex) => prevIndex + 1);
@@ -632,6 +677,60 @@ const SpellingApp = () => {
                 </select>
               </div>
             )}
+            <div className="bg-gray-700 p-4 rounded-lg">
+              <h2 className="text-xl font-semibold mb-1 text-gray-100">
+                Quiz from a Word List
+              </h2>
+              <p className="text-gray-400 text-sm mb-3">
+                Draws random words from the official Cambridge YLE lists. Your
+                own word list is left untouched.
+              </p>
+
+              <div className="flex flex-wrap gap-4 mb-4">
+                {WORD_LISTS.map((list) => (
+                  <label key={list.id} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={quizListIds.includes(list.id)}
+                      onChange={() => toggleQuizList(list.id)}
+                      className="mr-2"
+                    />
+                    <span className="text-gray-100">
+                      {list.name} ({list.words.length})
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              <p className="text-sm font-medium text-gray-300 mb-2">
+                Number of words:
+              </p>
+              <div className="flex flex-wrap gap-4 mb-4">
+                {QUIZ_SIZES.map((size) => (
+                  <label key={size} className="flex items-center">
+                    <input
+                      type="radio"
+                      name="quizCount"
+                      checked={quizCount === size}
+                      onChange={() => setQuizCount(size)}
+                      className="mr-2"
+                    />
+                    <span className="text-gray-100">
+                      {size === 0 ? "All" : size}
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              <button
+                onClick={startQuiz}
+                disabled={quizPool.length === 0}
+                className="w-full py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+              >
+                Start Quiz ({quizSize} {quizSize === 1 ? "word" : "words"})
+              </button>
+            </div>
+
             <div>
               <h2 className="text-xl font-semibold mb-1 text-gray-100">
                 Your Word List ({words.length})
@@ -700,6 +799,9 @@ const SpellingApp = () => {
               <>
                 <div className="text-center mb-6">
                   <h2 className="text-xl font-semibold mb-1 text-gray-100">Spelling Exam</h2>
+                  {examLabel && (
+                    <p className="text-blue-400 text-sm mb-1">{examLabel}</p>
+                  )}
                   <p className="text-gray-400">
                     Word {currentWordIndex + 1} of {examWords.length}
                     {incorrectWords.length > 0 &&
