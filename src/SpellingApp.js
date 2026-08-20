@@ -42,6 +42,8 @@ const SpellingApp = () => {
   const [reviewMissedOnly, setReviewMissedOnly] = useState(false);
   const [quizListIds, setQuizListIds] = useState([WORD_LISTS[0].id]);
   const [quizCount, setQuizCount] = useState(100);
+  const [showQuizWords, setShowQuizWords] = useState(false);
+  const [quizSearch, setQuizSearch] = useState("");
 
   // Speech settings (persisted to localStorage)
   const { settings, updateSetting } = useSpeechSettings();
@@ -58,6 +60,16 @@ const SpellingApp = () => {
   const quizPool = useMemo(() => collectWords(quizListIds), [quizListIds]);
   const quizSize =
     quizCount === 0 ? quizPool.length : Math.min(quizCount, quizPool.length);
+
+  const browsedWords = useMemo(() => {
+    const term = quizSearch.trim().toLowerCase();
+    const sorted = [...quizPool].sort((a, b) =>
+      a.toLowerCase().localeCompare(b.toLowerCase()),
+    );
+    return term
+      ? sorted.filter((word) => word.toLowerCase().includes(term))
+      : sorted;
+  }, [quizPool, quizSearch]);
 
   const startNextRound = useCallback(
     (missedWords) => {
@@ -729,6 +741,51 @@ const SpellingApp = () => {
               >
                 Start Quiz ({quizSize} {quizSize === 1 ? "word" : "words"})
               </button>
+
+              <button
+                onClick={() => setShowQuizWords(!showQuizWords)}
+                className="w-full mt-2 py-2 text-sm text-purple-300 hover:text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-md"
+              >
+                {showQuizWords ? "Hide" : "Browse"} these {quizPool.length}{" "}
+                words {showQuizWords ? "▲" : "▼"}
+              </button>
+
+              {showQuizWords && (
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={quizSearch}
+                    onChange={(e) => setQuizSearch(e.target.value)}
+                    className="w-full px-3 py-2 mb-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-800 text-gray-100 placeholder-gray-400 text-sm"
+                    placeholder="Search these words"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck="false"
+                  />
+                  <p className="text-gray-400 text-xs mb-2">
+                    Click any word to hear it. {browsedWords.length} shown.
+                  </p>
+                  {browsedWords.length > 0 ? (
+                    <ul className="grid grid-cols-2 sm:grid-cols-3 gap-1 max-h-72 overflow-y-auto">
+                      {browsedWords.map((word) => (
+                        <li key={word}>
+                          <button
+                            onClick={() => speakWord(word)}
+                            className="w-full text-left px-2 py-1 rounded text-sm text-gray-100 bg-gray-800 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500 truncate"
+                            title={`Listen to "${word}"`}
+                          >
+                            {word}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-gray-400 text-sm text-center py-4">
+                      No words match that search.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>

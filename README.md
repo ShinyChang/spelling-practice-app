@@ -34,7 +34,8 @@ Young Learners English word lists without adding anything by hand:
 | YLE Movers | 367 |
 
 Pick one or both lists and a quiz size (20 / 50 / 100 / All), then click
-**Start Quiz**. The words are drawn at random, and your own word list, its URL
+**Start Quiz**. **Browse these words** opens the whole selection, searchable,
+with any word clickable to hear it. The words are drawn at random, and your own word list, its URL
 parameter and its local storage entry are left untouched.
 
 A quiz re-tests only the words you missed in each following round, so a
