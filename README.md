@@ -11,6 +11,7 @@ A web application for practicing and testing spelling skills with text-to-speech
 - Choose between US and UK English accents
 - Words are shuffled for better learning
 - Automatic re-testing until all words are correct
+- Misspelled words are collected into a persistent review list you can practise later
 - Focus detection to prevent cheating
 - Word lists can be shared via URL
 - Data is saved in local storage
@@ -51,13 +52,35 @@ Word lists are extracted from the published PDFs
 entry-for-entry against the official Cambridge
 [combined wordlist](https://www.cambridgeenglish.org/Images/wordlists-pre-a1-starters-a1-movers-and-a2-flyers.pdf).
 
+## Review List
+
+Every word you misspell during an exam or quiz is added to a **Review List** at
+the bottom of the home screen, together with how many times you have missed it.
+The list is sorted by miss count, survives reloads (it lives in local storage,
+not the URL), and is never touched by starting a normal exam or quiz.
+
+From there you can:
+
+- **Practice these N words** - run an exam over the review list alone. Like a
+  quiz, each following round re-tests only what you missed.
+- **Add all to my word list** - copy them into your own word list.
+- **✕ / Clear list** - drop one word, or the whole list (clearing takes two
+  clicks).
+
+After a review practice, the completion screen offers to remove the words you
+got right on every round. Words you missed again stay on the list.
+
+Losing window focus during an exam still counts as a wrong answer for
+re-testing, but it is a cheating penalty rather than a misspelling, so it does
+not add anything to the review list.
+
 ## How to Use
 
 1. Add words to your practice list
 2. Click "Start Exam" to begin
 3. Listen to each word and type the correct spelling (capitalisation is ignored)
 4. Submit your answer or press Enter
-5. If you make any mistakes, you'll retry all words again
+5. If you make any mistakes, you'll retry all words again, and each missed word is saved to your review list
 6. The exam is complete when you spell all words correctly in a single round
 
 ## Technical Details

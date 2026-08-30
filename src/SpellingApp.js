@@ -13,6 +13,33 @@ import {
 import { WORD_LISTS, collectWords } from "./wordLists";
 
 const QUIZ_SIZES = [20, 50, 100, 0];
+const REVIEW_STORAGE_KEY = "spellingAppReviewWords";
+
+// Entries written by older builds may be bare strings, so every shape is coerced on read.
+const normalizeReviewEntries = (raw) => {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw
+    .map((entry) => {
+      if (typeof entry === "string") {
+        return entry.trim()
+          ? { word: entry, misses: 1, lastMissedAt: 0 }
+          : null;
+      }
+      if (!entry || typeof entry.word !== "string" || !entry.word.trim()) {
+        return null;
+      }
+      const misses = Number(entry.misses);
+      return {
+        word: entry.word,
+        misses: misses > 0 ? misses : 1,
+        lastMissedAt: Number(entry.lastMissedAt) || 0,
+      };
+    })
+    .filter(Boolean);
+};
 
 // Fisher-Yates shuffle
 const shuffleArray = (array) => {
@@ -45,6 +72,12 @@ const SpellingApp = () => {
   const [showQuizWords, setShowQuizWords] = useState(false);
   const [quizSearch, setQuizSearch] = useState("");
 
+  // The review list outlives a single exam, so it is kept apart from the per-round incorrectWords.
+  const [reviewWords, setReviewWords] = useState([]);
+  const [sessionMissed, setSessionMissed] = useState([]);
+  const [examFromReview, setExamFromReview] = useState(false);
+  const [confirmClearReview, setConfirmClearReview] = useState(false);
+
   // Speech settings (persisted to localStorage)
   const { settings, updateSetting } = useSpeechSettings();
 
@@ -70,6 +103,27 @@ const SpellingApp = () => {
       ? sorted.filter((word) => word.toLowerCase().includes(term))
       : sorted;
   }, [quizPool, quizSearch]);
+
+  const sortedReviewWords = useMemo(
+    () =>
+      [...reviewWords].sort(
+        (a, b) =>
+          b.misses - a.misses ||
+          a.word.toLowerCase().localeCompare(b.word.toLowerCase()),
+      ),
+    [reviewWords],
+  );
+
+  // A word missed again during the session was not learned, so it stays on the list.
+  const masteredThisExam = useMemo(
+    () =>
+      examSource.filter(
+        (word) =>
+          !sessionMissed.includes(word) &&
+          reviewWords.some((entry) => entry.word === word),
+      ),
+    [examSource, sessionMissed, reviewWords],
+  );
 
   const startNextRound = useCallback(
     (missedWords) => {
@@ -151,6 +205,23 @@ const SpellingApp = () => {
   useEffect(() => {
     localStorage.setItem("spellingAppWords", JSON.stringify(words));
   }, [words]);
+
+  // Load the review list on initial render
+  useEffect(() => {
+    const saved = localStorage.getItem(REVIEW_STORAGE_KEY);
+    if (saved) {
+      try {
+        setReviewWords(normalizeReviewEntries(JSON.parse(saved)));
+      } catch (error) {
+        console.error("Error parsing saved review words:", error);
+      }
+    }
+  }, []);
+
+  // The review list is deliberately kept out of the URL so sharing a word list stays small.
+  useEffect(() => {
+    localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(reviewWords));
+  }, [reviewWords]);
 
   // Initialize WebSpeechProvider once
   useEffect(() => {
@@ -289,6 +360,7 @@ const SpellingApp = () => {
         setFeedback(`Focus lost! The word was "${currentWord}".`);
         setFeedbackColor("text-red-600");
 
+        // Losing focus is a cheating penalty, not a misspelling, so it never reaches the review list.
         const missed = incorrectWords.includes(currentWord)
           ? incorrectWords
           : [...incorrectWords, currentWord];
@@ -371,7 +443,10 @@ const SpellingApp = () => {
     setWords(words.filter((_, index) => index !== indexToRemove));
   };
 
-  const beginExam = (pool, { label = "", missedOnly = false } = {}) => {
+  const beginExam = (
+    pool,
+    { label = "", missedOnly = false, fromReview = false } = {},
+  ) => {
     setExamSource(pool);
     setExamLabel(label);
     setReviewMissedOnly(missedOnly);
@@ -382,6 +457,8 @@ const SpellingApp = () => {
     setFeedback("");
     setIsExamComplete(false);
     setIncorrectWords([]);
+    setSessionMissed([]);
+    setExamFromReview(fromReview);
 
     // Force focus and TTS after a short delay to ensure DOM is updated
     setTimeout(() => {
@@ -427,6 +504,75 @@ const SpellingApp = () => {
     });
   };
 
+  const recordMiss = (word) => {
+    setSessionMissed((prev) =>
+      prev.includes(word) ? prev : [...prev, word],
+    );
+    setReviewWords((prev) => {
+      const now = Date.now();
+      return prev.some((entry) => entry.word === word)
+        ? prev.map((entry) =>
+            entry.word === word
+              ? { ...entry, misses: entry.misses + 1, lastMissedAt: now }
+              : entry,
+          )
+        : [...prev, { word, misses: 1, lastMissedAt: now }];
+    });
+  };
+
+  const removeReviewWord = (word) => {
+    setReviewWords((prev) => prev.filter((entry) => entry.word !== word));
+  };
+
+  // Clearing a study record is unrecoverable, so the first click only arms the button.
+  const clearReviewWords = () => {
+    if (!confirmClearReview) {
+      setConfirmClearReview(true);
+      setTimeout(() => setConfirmClearReview(false), 4000);
+      return;
+    }
+    setReviewWords([]);
+    setConfirmClearReview(false);
+  };
+
+  const clearMasteredFromReview = () => {
+    setReviewWords((prev) =>
+      prev.filter((entry) => !masteredThisExam.includes(entry.word)),
+    );
+  };
+
+  const addReviewWordsToList = () => {
+    const additions = reviewWords
+      .map((entry) => entry.word)
+      .filter((word) => !words.includes(word));
+
+    if (additions.length === 0) {
+      setFeedback("Those words are already in your list.");
+      setFeedbackColor("text-yellow-600");
+    } else {
+      setWords([...words, ...additions]);
+      setFeedback(
+        `Added ${additions.length} ${additions.length === 1 ? "word" : "words"} to your word list.`,
+      );
+      setFeedbackColor("text-green-600");
+    }
+    setTimeout(() => setFeedback(""), 2000);
+  };
+
+  const startReviewExam = () => {
+    if (reviewWords.length === 0) {
+      setFeedback("Nothing to review yet.");
+      setFeedbackColor("text-yellow-600");
+      setTimeout(() => setFeedback(""), 2000);
+      return;
+    }
+
+    beginExam(
+      reviewWords.map((entry) => entry.word),
+      { label: "Review list", missedOnly: true, fromReview: true },
+    );
+  };
+
   const checkAnswer = () => {
     const currentWord = examWords[currentWordIndex];
     // The lists carry proper nouns and abbreviations, so capitalisation is not what is being tested.
@@ -460,6 +606,7 @@ const SpellingApp = () => {
     } else {
       setFeedback(`Incorrect! The word was "${currentWord}".`);
       setFeedbackColor("text-red-600");
+      recordMiss(currentWord);
 
       const missed = incorrectWords.includes(currentWord)
         ? incorrectWords
@@ -836,6 +983,80 @@ const SpellingApp = () => {
             >
               Start Exam
             </button>
+
+            <div className="bg-gray-700 p-4 rounded-lg">
+              <h2 className="text-xl font-semibold mb-1 text-gray-100">
+                Review List ({reviewWords.length})
+              </h2>
+              <p className="text-gray-400 text-sm mb-3">
+                Words you misspell in any exam are collected here and kept
+                between visits. Click a word to hear it.
+              </p>
+
+              {reviewWords.length > 0 ? (
+                <>
+                  <ul className="space-y-2 max-h-64 overflow-y-auto mb-4">
+                    {sortedReviewWords.map((entry) => (
+                      <li
+                        key={entry.word}
+                        className="flex justify-between items-center p-2 bg-gray-800 rounded hover:bg-gray-600 text-gray-100"
+                        onClick={() => speakWord(entry.word)}
+                      >
+                        <span>{entry.word}</span>
+                        <div className="flex items-center space-x-4">
+                          <span className="text-xs text-amber-400">
+                            missed {entry.misses}x
+                          </span>
+                          <button
+                            className="text-blue-400 hover:text-blue-300"
+                            title="Listen to pronunciation"
+                          >
+                            🔊
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeReviewWord(entry.word);
+                            }}
+                            className="text-red-400 hover:text-red-300"
+                            title="Remove from review list"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button
+                    onClick={startReviewExam}
+                    className="w-full py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    Practice these {reviewWords.length}{" "}
+                    {reviewWords.length === 1 ? "word" : "words"}
+                  </button>
+
+                  <div className="flex gap-4 mt-2">
+                    <button
+                      onClick={addReviewWordsToList}
+                      className="flex-1 py-2 text-sm text-amber-300 hover:text-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 rounded-md"
+                    >
+                      Add all to my word list
+                    </button>
+                    <button
+                      onClick={clearReviewWords}
+                      className="flex-1 py-2 text-sm text-red-400 hover:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500 rounded-md"
+                    >
+                      {confirmClearReview ? "Click again to clear" : "Clear list"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-400 text-center py-2">
+                  Nothing to review yet.
+                </p>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
@@ -845,6 +1066,22 @@ const SpellingApp = () => {
                 <p className="text-green-400">
                   You've correctly spelled all words!
                 </p>
+                {sessionMissed.length > 0 && (
+                  <p className="text-amber-400 text-sm">
+                    {sessionMissed.length}{" "}
+                    {sessionMissed.length === 1 ? "word" : "words"} saved to
+                    your review list.
+                  </p>
+                )}
+                {examFromReview && masteredThisExam.length > 0 && (
+                  <button
+                    onClick={clearMasteredFromReview}
+                    className="w-full py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    Remove the {masteredThisExam.length} you got right every
+                    time
+                  </button>
+                )}
                 <button
                   onClick={exitExam}
                   className="w-full py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
